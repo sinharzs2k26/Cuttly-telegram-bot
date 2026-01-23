@@ -406,7 +406,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ URL Shortened Successfully!\n\n"
             f"🌐 Original URL:\n{text[:100]}...\n\n"
             f"🔗 Short URL:\n{short_url}\n\n"
-            f"📊 Analytics: https://cutt.ly/{path}/stats\n\n"
+            f"📊 Analytics: https://cutt.ly/{path}-stats30\n\n"
             f"📋 Copy: {short_url}\n\n"
             f"💡 Tip: Use /custom for custom alias"
         )
@@ -414,7 +414,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Create keyboard with actions
         keyboard = [
             [InlineKeyboardButton("📋 Copy URL", callback_data=f"copy_{short_url}")],
-            [InlineKeyboardButton("📊 View Stats", url=f"https://cutt.ly/{path}/stats")],
+            [InlineKeyboardButton("📊 View Stats", url=f"https://cutt.ly/{path}-stats30")],
             [InlineKeyboardButton("🔗 Open URL", url=short_url)],
             [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
         ]
