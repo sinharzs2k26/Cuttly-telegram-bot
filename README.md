@@ -1,4 +1,4 @@
-# Telegram URL Shortener Bot
+# Cuttly URL Shortener Telegram Bot
 
 A Telegram bot that shortens long URLs using Cuttly API.
 
@@ -19,8 +19,8 @@ A Telegram bot that shortens long URLs using Cuttly API.
 
 ### 2. Local Development
 ```bash
-git clone <repo>
-cd telegram-url-shortener
+git clone https://github.com/sinharzs2k26/Cuttly-telegram-bot.git
+cd Cuttly-telegram-bot
 
 # Install dependencies
 pip install -r requirements.txt
