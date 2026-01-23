@@ -560,17 +560,49 @@ def main():
     application.add_error_handler(error_handler)
     
     # Start the bot
-    logger.info("🤖 URL Shortener Bot starting...")
-    
+    logger.info("🤖 Bot is starting...")
+    logger.info("📡 Press Ctrl+C to stop")
+
     # Check if running on Render
-    if 'RENDER' in os.environ:
-        logger.info("🚀 Running in Render mode (polling)")
-    
-    # Use polling (works everywhere)
-    application.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES
-    )
+    is_render = 'RENDER' in os.environ
+
+    if is_render:
+        # Use webhook for Render
+        logger.info("🚀 Running in Render mode")
+        port = int(os.environ.get('PORT', 10000))
+
+        # Get webhook URL
+        webhook_url = os.environ.get('RENDER_EXTERNAL_URL')
+        if webhook_url:
+            webhook_url = f"{webhook_url}/{TOKEN}"
+            logger.info(f"Setting webhook to: {webhook_url}")
+
+            # Set webhook before starting
+            async def set_webhook():
+                await application.bot.set_webhook(webhook_url)
+
+            # Run the application with webhook
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=port,
+                url_path=TOKEN,
+                webhook_url=webhook_url,
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES
+            )
+        else:
+            logger.warning("No RENDER_EXTERNAL_URL found, using polling instead")
+            application.run_polling(
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES
+            )
+    else:
+        # Use polling for local development
+        logger.info("💻 Running in local mode (polling)")
+        application.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES
+        )
 
 if __name__ == '__main__':
     main()
