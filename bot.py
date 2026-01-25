@@ -31,7 +31,7 @@ if not CUTTLY_API_KEY:
     raise ValueError("Please set CUTTLY_API_KEY environment variable")
 
 # Store user sessions for analytics (optional)
-user_mystats: Dict[int, Dict] = {}
+user_stats: Dict[int, Dict] = {}
 
 # Cuttly API base URL
 CUTTLY_API_URL = "https://cutt.ly/api/api.php"
@@ -225,7 +225,7 @@ def generate_qr_code(url: str) -> Optional[bytes]:
         
         # Convert to bytes
         img_byte_arr = BytesIO()
-        img.save(img_byte_arr, format='PNG')
+        img.save(img_byte_arr)
         img_byte_arr.seek(0)
         
         return img_byte_arr.getvalue()
@@ -265,10 +265,10 @@ def format_stats_message(stats: Dict) -> str:
         f"• Pinterest: {stats.get('pinterest', 0)} clicks\n\n"
     )
 
-def update_user_mystats(user_id: int, url_count: int = 1):
+def update_user_stats(user_id: int, url_count: int = 1):
     """Update user statistics"""
-    if user_id not in user_mystats:
-        user_mystats[user_id] = {
+    if user_id not in user_stats:
+        user_stats[user_id] = {
             'urls_shortened': 0,
             'first_used': None,
             'last_used': None
@@ -277,11 +277,11 @@ def update_user_mystats(user_id: int, url_count: int = 1):
     import datetime
     now = datetime.datetime.now()
     
-    user_mystats[user_id]['urls_shortened'] += url_count
-    user_mystats[user_id]['last_used'] = now
+    user_stats[user_id]['urls_shortened'] += url_count
+    user_stats[user_id]['last_used'] = now
     
-    if not user_mystats[user_id]['first_used']:
-        user_mystats[user_id]['first_used'] = now
+    if not user_stats[user_id]['first_used']:
+        user_stats[user_id]['first_used'] = now
 
 # Command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -342,8 +342,8 @@ async def mystats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show user statistics"""
     user_id = update.effective_user.id
     
-    if user_id in user_mystats:
-        stats = user_mystats[user_id]
+    if user_id in user_stats:
+        stats = user_stats[user_id]
         urls_count = stats.get('urls_shortened', 0)
         first_used = stats.get('first_used')
         last_used = stats.get('last_used')
@@ -476,7 +476,7 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result.get('success'):
         short_url = result.get('short_url', '')
         short_id = result.get('short_id', '')
-        update_user_mystats(update.effective_user.id)
+        update_user_stats(update.effective_user.id)
         
         response_message = (
             f"✅ URL Shortened Successfully!\n\n"
@@ -619,7 +619,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if result.get('success'):
         short_url = result.get('short_url', '')
-        update_user_mystats(user_id)
+        update_user_stats(user_id)
         
         response_message = (
             f"✅ URL Shortened Successfully!\n\n"
@@ -708,7 +708,7 @@ async def handle_bulk_urls(update: Update, text: str):
             response_parts.append(f"• ... and {len(invalid_urls) - 5} more")
     
     # Update user stats
-    update_user_mystats(update.effective_user.id, successful)
+    update_user_stats(update.effective_user.id, successful)
     
     response_message = "\n".join(response_parts)
     
