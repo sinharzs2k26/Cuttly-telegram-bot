@@ -320,8 +320,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Basic Usage:\n"
         "Just send any URL starting with http:// or https://\n\n"
         "Advanced Features:\n"
-        "1. Custom Alias: /custom alias https://url.com\n"
-        "2. QR Code: /qr https://url.com (shows image!)\n"
+        "1. Custom Alias: /custom alias https://mylink.com\n"
+        "2. QR Code: /qr https://mylink.com (shows image!)\n"
         "3. Bulk URLs: /bulk then send URLs\n"
         "4. User Stats: /mystats to see your usage\n"
         "5. URL Stats: /stats short-url for analytics\n\n"
@@ -427,7 +427,7 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Usage: /custom your-alias https://example.com\n\n"
             "Example:\n"
-            "/custom mysite https://www.mywebsite.com\n\n"
+            "/custom mysite https://www.mylink.com\n\n"
             "Rules for alias:\n"
             "• 3-30 characters\n"
             "• Letters, numbers, hyphens only\n"
@@ -507,7 +507,7 @@ async def qr_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Usage: /qr https://example.com\n\n"
             "Example:\n"
-            "/qr https://www.mywebsite.com\n\n"
+            "/qr https://www.mylink.com\n\n"
             "I'll generate and send a QR code image for your URL!"
         )
         return
