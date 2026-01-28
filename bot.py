@@ -625,14 +625,11 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ URL Shortened Successfully!\n\n"
             f"🌐 Original URL:\n{text[:100]}...\n\n"
             f"🔗 Short URL:\n{short_url}\n\n"
-            f"📊 Use /stats {short_url} to track clicks\n\n"
-            f"📋 Copy: {short_url}\n\n"
             f"💡 Tip: Use /custom for custom alias"
         )
         
         # Create keyboard with actions
         keyboard = [
-            [InlineKeyboardButton("📋 Copy URL", callback_data=f"copy_{short_url}")],
             [InlineKeyboardButton("📊 View Stats", callback_data=f"stats_{short_url}")],
             [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
             [InlineKeyboardButton("🔗 Open URL", url=short_url)],
@@ -731,16 +728,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     
     try:
-        if data.startswith('copy_'):
-            # Copy URL to clipboard (simulated)
-            url = data[5:]
-            await query.edit_message_text(
-                f"📋 URL copied to clipboard!\n\n"
-                f"{url}\n\n"
-                f"_You can now paste it anywhere._"
-            )
-        
-        elif data.startswith('stats_'):
+        if data.startswith('stats_'):
             # Show statistics for URL
             short_url = data[6:]
             await query.edit_message_text("📊 Fetching statistics...")
@@ -791,8 +779,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Edit original message to show success
                 await query.edit_message_text(
                     f"✅ QR code sent!\n\n"
-                    f"Check the QR code image above.\n\n"
-                    f"🔗 URL: {display_url}"
+                    f"Check the QR code image below.\n\n"
                 )
                 logger.info(f"✅ QR code sent via button for: {url[:50]}")
             else:
