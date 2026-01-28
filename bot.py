@@ -778,8 +778,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 # Edit original message to show success
                 await query.edit_message_text(
-                    f"✅ QR code sent!\n\n"
-                    f"Check the QR code image below.\n\n"
+                    f"✅ QR code generated successfully!"
                 )
                 logger.info(f"✅ QR code sent via button for: {url[:50]}")
             else:
