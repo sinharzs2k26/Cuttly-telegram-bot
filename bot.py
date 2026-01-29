@@ -292,7 +292,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_message = (
         f"👋 Hello {user.first_name}!\n\n"
-        "🔗 URL Shortener Bot\n\n"
+        "🔗 URL shortener bot\n\n"
         "I can shorten your long URLs using Cuttly service.\n\n"
         "📝 How to use:\n"
         "1. Send me any long URL\n"
@@ -301,7 +301,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✨ New Features:\n"
         "• View stats directly in bot\n"
         "• See QR code images in chat\n"
-        "• Platform-wise click analytics\n\n"
+        "• Platform-wise analytics\n\n"
         "⚙️ Commands:\n"
         "/start - Show this message\n"
         "/help - Detailed help\n"
@@ -313,13 +313,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📎 Just send me a URL to get started!"
     )
     
-    await update.message.reply_text(welcome_message, parse_mode='Markdown')
+    await update.message.reply_text(welcome_message)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send help message"""
     help_text = (
         "📚 Help Guide\n\n"
-        "Basic Usage:\n"
+        "Basic usage:\n"
         "Just send any URL starting with http:// or https://\n\n"
         "Advanced Features:\n"
         "1. Custom Alias: /custom alias https://mylink.com\n"
@@ -338,7 +338,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Rate limit: 10 URLs/minute"
     )
     
-    await update.message.reply_text(help_text, parse_mode='Markdown')
+    await update.message.reply_text(help_text)
 
 async def mystats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show user statistics"""
@@ -371,7 +371,7 @@ async def mystats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🎯 Start by shortening your first URL!"
         )
     
-    await update.message.reply_text(mystats_message, parse_mode='Markdown')
+    await update.message.reply_text(mystats_message)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Get statistics for a shortened URL"""
@@ -418,7 +418,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await processing_msg.edit_text(stats_message, reply_markup=reply_markup, parse_mode='Markdown')
+        await processing_msg.edit_text(stats_message, reply_markup=reply_markup)
     else:
         error_msg = result.get('error', 'Unknown error')
         await processing_msg.edit_text(f"❌ Failed to fetch statistics:\n{error_msg}")
@@ -498,7 +498,7 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await processing_msg.edit_text(response_message, reply_markup=reply_markup, parse_mode='Markdown')
+        await processing_msg.edit_text(response_message, reply_markup=reply_markup)
     else:
         error_msg = result.get('error', 'Unknown error')
         await processing_msg.edit_text(f"❌ Failed to shorten URL:\n{error_msg}")
@@ -543,18 +543,12 @@ async def qr_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption = (
                 f"📱 QR Code Generated\n\n"
                 f"🔗 URL: {display_url}\n\n"
-                f"To use:\n"
-                f"1. Scan with phone camera\n"
-                f"2. Save the image\n"
-                f"3. Share with others\n\n"
-                f"✅ Generated locally - No external API used"
             )
             
             # Send the image
             await update.message.reply_photo(
                 photo=qr_image,
-                caption=caption,
-                parse_mode='Markdown'
+                caption=caption
             )
             logger.info(f"✅ QR code sent successfully for URL: {url[:50]}")
             
@@ -638,7 +632,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await processing_msg.edit_text(response_message, reply_markup=reply_markup, parse_mode='Markdown')
+        await processing_msg.edit_text(response_message, reply_markup=reply_markup)
     else:
         error_msg = result.get('error', 'Unknown error')
         await processing_msg.edit_text(f"❌ Failed to shorten URL:\n{error_msg}")
@@ -716,11 +710,11 @@ async def handle_bulk_urls(update: Update, text: str):
         chunks = [response_message[i:i+4000] for i in range(0, len(response_message), 4000)]
         for i, chunk in enumerate(chunks):
             if i == 0:
-                await processing_msg.edit_text(chunk, parse_mode='Markdown')
+                await processing_msg.edit_text(chunk)
             else:
-                await update.message.reply_text(chunk, parse_mode='Markdown')
+                await update.message.reply_text(chunk)
     else:
-        await processing_msg.edit_text(response_message, parse_mode='Markdown')
+        await processing_msg.edit_text(response_message)
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle button callbacks"""
@@ -748,7 +742,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
-                await query.edit_message_text(stats_message, reply_markup=reply_markup, parse_mode='Markdown')
+                await query.edit_message_text(stats_message, reply_markup=reply_markup)
             else:
                 error_msg = result.get('error', 'Unknown error')
                 await query.edit_message_text(f"❌ Failed to fetch stats:\n{error_msg}")
@@ -774,8 +768,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_photo(
                     chat_id=query.message.chat_id,
                     photo=qr_image,
-                    caption=caption,
-                    parse_mode='Markdown'
+                    caption=caption
                 )
                 
                 # Edit original message to show success
@@ -807,7 +800,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
-                await query.edit_message_text(stats_message, reply_markup=reply_markup, parse_mode='Markdown')
+                await query.edit_message_text(stats_message, reply_markup=reply_markup)
             else:
                 error_msg = result.get('error', 'Unknown error')
                 await query.edit_message_text(f"❌ Failed to refresh stats:\n{error_msg}")
