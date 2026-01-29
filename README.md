@@ -1,4 +1,4 @@
-# Cuttly URL Shortener Telegram Bot
+# A telegram bot version for cutt.ly URL shortener
 
 A Telegram bot that shortens long URLs using Cuttly API.
 
