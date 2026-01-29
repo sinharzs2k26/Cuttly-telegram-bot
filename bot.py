@@ -854,14 +854,14 @@ def main():
     logger.info("🤖 URL Shortener Bot starting...")
     
     class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'Bot is alive!')
-    
-    def log_message(self, format, *args):
-        pass  # Silence logs
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Bot is alive!')
+        
+        def log_message(self, format, *args):
+            pass  # Silence logs
 
     def run_health_server():
         port = int(os.environ.get("PORT", 8080))
