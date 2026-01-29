@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import requests
 import qrcode
 from io import BytesIO
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
