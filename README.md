@@ -2,7 +2,9 @@
 
 A Telegram bot that shortens long URLs using Cuttly API.
 
-## Features
+**Bot link:** `t.me/cuttlytelegrambot`
+
+## ✨Features
 - 🔗 Shorten any valid URL
 - 🏷️ Custom alias support
 - 📊 Click analytics
