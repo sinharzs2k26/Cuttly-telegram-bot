@@ -222,7 +222,7 @@ def update_user_stats(user_id: int, url_count: int = 1):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     welcome_message = (
-        f"👋 Hello {user.first_name}!\n\n"
+        f"👋 <b>Hello {user.first_name}!</b>\n\n"
         "🔗 <b>URL shortener bot</b>\n\n"
         "I can shorten your long URLs using Cuttly service.\n\n"
         "📝 <b>How to use:</b>\n"
