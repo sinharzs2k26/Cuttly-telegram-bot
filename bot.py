@@ -13,33 +13,25 @@ import threading
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
-# Load environment variables
 load_dotenv()
-
-# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Get tokens from environment
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CUTTLY_API_KEY = os.getenv('CUTTLY_API_KEY')
+CUTTLY_API_URL = "https://cutt.ly/api/api.php"
 
 if not TOKEN:
     raise ValueError("Please set TELEGRAM_BOT_TOKEN environment variable")
 if not CUTTLY_API_KEY:
     raise ValueError("Please set CUTTLY_API_KEY environment variable")
 
-# Store user sessions for analytics (optional)
 user_stats: Dict[int, Dict] = {}
 
-# Cuttly API base URL
-CUTTLY_API_URL = "https://cutt.ly/api/api.php"
-
 def is_valid_url(url: str) -> bool:
-    """Validate URL format"""
     if not url:
         return False
     url_pattern = re.compile(
@@ -52,51 +44,36 @@ def is_valid_url(url: str) -> bool:
     return bool(url_pattern.match(url))
 
 def shorten_url_with_cuttly(long_url: str, custom_alias: str = None) -> Dict:
-    """
-    Shorten URL using Cuttly API
-    Returns: {'success': bool, 'short_url': str, 'error': str, 'short_id': str}
-    """
     if not long_url:
         return {'success': False, 'error': 'No URL provided'}
-    
     params = {
         'key': CUTTLY_API_KEY,
         'short': long_url,
-    }
-    
+    }    
     if custom_alias:
         params['name'] = custom_alias
-    
     try:
         response = requests.get(CUTTLY_API_URL, params=params, timeout=10)
-        
         if response.status_code != 200:
             return {'success': False, 'error': f'API Error: {response.status_code}'}
-        
         data = response.json()
-        
         if not data or 'url' not in data:
             return {'success': False, 'error': 'Invalid API response'}
-        
         url_data = data.get('url', {})
-        
         if not url_data:
             return {'success': False, 'error': 'No URL data in response'}
-        
         status = url_data.get('status')
-        
-        if status == 7:  # Success
+        if status == 7:
             short_link = url_data.get('shortLink')
             if not short_link:
                 return {'success': False, 'error': 'No short link in response'}
-            
             return {
                 'success': True,
                 'short_url': short_link,
                 'short_id': short_link.split('/')[-1] if '/' in short_link else short_link,
                 'full_data': url_data
             }
-        elif status == 1:  # Already exists
+        elif status == 1:
             short_link = url_data.get('shortLink')
             if short_link:
                 return {
@@ -109,7 +86,6 @@ def shorten_url_with_cuttly(long_url: str, custom_alias: str = None) -> Dict:
             else:
                 return {'success': False, 'error': 'URL exists but no short link'}
         else:
-            # Handle Cuttly error codes
             error_codes = {
                 2: 'Invalid URL',
                 3: 'Invalid custom alias',
@@ -124,7 +100,6 @@ def shorten_url_with_cuttly(long_url: str, custom_alias: str = None) -> Dict:
                 'error': f"Cuttly Error: {error_msg}",
                 'code': status
             }
-            
     except requests.exceptions.Timeout:
         return {'success': False, 'error': 'Request timeout. Please try again.'}
     except requests.exceptions.ConnectionError:
@@ -134,43 +109,27 @@ def shorten_url_with_cuttly(long_url: str, custom_alias: str = None) -> Dict:
         return {'success': False, 'error': f'Internal error: {str(e)[:100]}'}
 
 def get_url_stats(short_url: str) -> Dict:
-    """
-    Get statistics for a shortened URL
-    API: https://cutt.ly/api/api.php?key=API_KEY&stats=SHORT_ID
-    """
     if not short_url:
         return {'success': False, 'error': 'No URL provided'}
-    
-    # Extract short ID from URL
     short_id = short_url.split('/')[-1] if '/' in short_url else short_url
-    
     if not short_id:
         return {'success': False, 'error': 'Invalid short URL'}
-    
     params = {
         'key': CUTTLY_API_KEY,
         'stats': short_id
     }
-    
     try:
         response = requests.get(CUTTLY_API_URL, params=params, timeout=10)
-        
         if response.status_code != 200:
             return {'success': False, 'error': f'API Error: {response.status_code}'}
-        
         data = response.json()
-        
         if not data or 'stats' not in data:
             return {'success': False, 'error': 'Invalid API response'}
-        
         stats_data = data.get('stats', {})
-        
         if not stats_data:
             return {'success': False, 'error': 'No stats data in response'}
-        
         status = stats_data.get('status')
-        
-        if status == 1:  # Stats retrieved successfully
+        if status == 1:
             return {
                 'success': True,
                 'stats': {
@@ -186,7 +145,6 @@ def get_url_stats(short_url: str) -> Dict:
                 }
             }
         else:
-            # Handle stats errors
             error_codes = {
                 1: 'Short URL not found',
                 2: 'Invalid short URL',
@@ -196,46 +154,29 @@ def get_url_stats(short_url: str) -> Dict:
             }
             error_msg = error_codes.get(status, f'Unknown error (code: {status})')
             return {'success': False, 'error': f"Stats Error: {error_msg}"}
-            
     except Exception as e:
         logger.error(f"Stats API error: {e}")
         return {'success': False, 'error': f'Failed to fetch stats: {str(e)[:100]}'}
 
 def generate_qr_code(url: str) -> Optional[bytes]:
-    """
-    Generate QR code locally - NO EXTERNAL API NEEDED
-    Returns: QR code image bytes
-    """
     if not url:
         return None
-    
     try:
-        # Create QR code
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=10,
             border=4,
         )
-        
-        # Add URL to QR code
         qr.add_data(url)
         qr.make(fit=True)
-        
-        # Create image with black foreground and white background
         img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to bytes
         img_byte_arr = BytesIO()
         img.save(img_byte_arr)
         img_byte_arr.seek(0)
-        
         return img_byte_arr.getvalue()
-        
     except Exception as e:
         logger.error(f"QR code generation error: {e}")
-        
-        # Fallback to external API if local generation fails
         try:
             import urllib.parse
             encoded_url = urllib.parse.quote(url, safe='')
@@ -245,14 +186,11 @@ def generate_qr_code(url: str) -> Optional[bytes]:
                 return response.content
         except:
             pass
-        
         return None
 
 def format_stats_message(stats: Dict) -> str:
-    """Format stats data into a readable message"""
     if not stats:
         return "❌ No statistics available"
-    
     return (
         f"📊 URL Statistics\n\n"
         f"📝 Title: {stats.get('title', 'No title')}\n"
@@ -268,41 +206,34 @@ def format_stats_message(stats: Dict) -> str:
     )
 
 def update_user_stats(user_id: int, url_count: int = 1):
-    """Update user statistics"""
     if user_id not in user_stats:
         user_stats[user_id] = {
             'urls_shortened': 0,
             'first_used': None,
             'last_used': None
         }
-    
     import datetime
     now = datetime.datetime.now()
-    
     user_stats[user_id]['urls_shortened'] += url_count
     user_stats[user_id]['last_used'] = now
-    
     if not user_stats[user_id]['first_used']:
         user_stats[user_id]['first_used'] = now
-
 # Command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send welcome message when /start is issued"""
     user = update.effective_user
-    
     welcome_message = (
         f"👋 Hello {user.first_name}!\n\n"
-        "🔗 URL shortener bot\n\n"
+        "🔗 <b>URL shortener bot</b>\n\n"
         "I can shorten your long URLs using Cuttly service.\n\n"
-        "📝 How to use:\n"
+        "📝 <b>How to use:</b>\n"
         "1. Send me any long URL\n"
         "2. I'll shorten it instantly\n"
         "3. Get your short link with analytics\n\n"
-        "✨ New Features:\n"
+        "✨ <b>New Features:</b>\n"
         "• View stats directly in bot\n"
         "• See QR code images in chat\n"
         "• Platform-wise analytics\n\n"
-        "⚙️ Commands:\n"
+        "⚙️ <b>Commands:</b>\n"
         "/start - Show this message\n"
         "/help - Detailed help\n"
         "/mystats - Your statistics\n"
@@ -310,78 +241,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/bulk - Shorten multiple URLs\n"
         "/custom - Set custom alias\n"
         "/qr - Generate QR code\n\n"
-        "📎 Just send me a URL to get started!"
+        "📎 <b>Just send me a URL to get started!</b>"
     )
-    
-    await update.message.reply_text(welcome_message)
+    await update.message.reply_html(welcome_message)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send help message"""
     help_text = (
-        "📚 Help Guide\n\n"
-        "Basic usage:\n"
+        "📚 <b>Help Guide</b>\n\n"
+        "<b>Basic usage:</b>\n"
         "Just send any URL starting with http:// or https://\n\n"
-        "Advanced Features:\n"
-        "1. Custom Alias: /custom alias https://mylink.com\n"
-        "2. QR Code: /qr https://mylink.com (shows image!)\n"
-        "3. Bulk URLs: /bulk then send URLs\n"
-        "4. User Stats: /mystats to see your usage\n"
-        "5. URL Stats: /stats short-url for analytics\n\n"
-        "Examples:\n"
-        "• https://www.example.com/very-long-url-path\n"
-        "• /custom mysite https://example.com\n"
-        "• /qr https://example.com\n"
-        "• /stats https://cutt.ly/abc123\n\n"
-        "Limitations:\n"
+        "<b>Advanced Features:</b>\n"
+        "1. <b>Custom Alias</b>: /custom alias <code>https://url.com</code>\n"
+        "2. <b>QR Code</b>: /qr <code>https://url.com</code> (shows image!)\n"
+        "3. <b>Bulk URLs</b>: /bulk then send URLs\n"
+        "4. <b>User Stats</b>: /mystats to see your usage\n"
+        "5. <b>URL Stats</b>: /stats <code>short-url</code> for analytics\n\n"
+        "<b>Examples:</b>\n"
+        "• <code>https://www.example.com/very-long-url-path</code>\n"
+        "• /custom mysite <code>https://example.com</code>\n"
+        "• /qr <code>https://example.com</code>\n"
+        "• /stats <code>https://cutt.ly/abc123</code>\n\n"
+        "<b>Limitations:</b>\n"
         "• Max URL length: 2048 characters\n"
         "• Must start with http:// or https://\n"
         "• Rate limit: 10 URLs/minute"
     )
-    
-    await update.message.reply_text(help_text)
+    await update.message.reply_html(help_text)
 
 async def mystats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user statistics"""
     user_id = update.effective_user.id
-    
     if user_id in user_stats:
         stats = user_stats[user_id]
         urls_count = stats.get('urls_shortened', 0)
         first_used = stats.get('first_used')
         last_used = stats.get('last_used')
-        
         first_str = first_used.strftime('%Y-%m-%d %H:%M') if first_used else 'Never'
         last_str = last_used.strftime('%Y-%m-%d %H:%M') if last_used else 'Never'
-        
         mystats_message = (
-            f"📊 Your Statistics\n\n"
-            f"👤 User: {update.effective_user.first_name}\n"
-            f"🔗 URLs Shortened: {urls_count}\n"
-            f"📅 First Used: {first_str}\n"
-            f"⏰ Last Used: {last_str}\n\n"
-            f"🎯 Rank: {'Beginner' if urls_count < 5 else 'Pro' if urls_count > 50 else 'Regular'}\n"
+            f"📊 <b>Your Statistics</b>\n\n"
+            f"👤 <b>User:</b> {update.effective_user.first_name}\n"
+            f"🔗 <b>URLs Shortened:</b> {urls_count}\n"
+            f"📅 <b>First Used:</b> {first_str}\n"
+            f"⏰ <b>Last Used:</b> {last_str}\n\n"
+            f"🎯 <b>Rank:</b> {'Beginner' if urls_count < 5 else 'Pro' if urls_count > 50 else 'Regular'}\n"
         )
     else:
         mystats_message = (
-            f"📊 Your Statistics\n\n"
-            f"👤 User: {update.effective_user.first_name}\n"
-            f"🔗 URLs Shortened: 0\n"
-            f"📅 First Used: Never\n"
-            f"⏰ Last Used: Never\n\n"
-            f"🎯 Start by shortening your first URL!"
+            f"📊 <b>Your Statistics</b>\n\n"
+            f"👤 <b>User:</b> {update.effective_user.first_name}\n"
+            f"🔗 <b>URLs Shortened:</b> 0\n"
+            f"📅 <b>First Used:</b> Never\n"
+            f"⏰ <b>Last Used:</b> Never\n\n"
+            f"🎯 <b>Start by shortening your first URL!</b>"
         )
-    
-    await update.message.reply_text(mystats_message)
+    await update.message.reply_html(mystats_message)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Get statistics for a shortened URL"""
     if not context.args:
-        await update.message.reply_text(
-            "📊 URL Statistics\n\n"
-            "Usage: /stats https://cutt.ly/your-short-url\n\n"
-            "Example:\n"
-            "/stats https://cutt.ly/abc123\n\n"
-            "What you'll see:\n"
+        await update.message.reply_html(
+            "📊 <b>URL Statistics</b>\n\n"
+            "<b>Usage:</b> /stats <code>https://cutt.ly/your-short-url</code>\n\n"
+            "<b>Example:</b>\n"
+            "/stats <code>https://cutt.ly/abc123</code>\n\n"
+            "<b>What you'll see:</b>\n"
             "• Total clicks\n"
             "• Platform breakdown\n"
             "• Creation date\n"
@@ -389,107 +311,82 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Send /help for more information."
         )
         return
-    
     short_url = ' '.join(context.args)
-    
-    # Validate it's a Cuttly URL
     if not short_url.startswith('https://cutt.ly/'):
-        await update.message.reply_text(
-            "❌ Invalid Cuttly URL!\n\n"
+        await update.message.reply_html(
+            "❌ <b>Invalid Cuttly URL!</b>\n\n"
             "Please provide a valid Cuttly short URL.\n"
-            "Example: https://cutt.ly/abc123"
+            "Example: <code>https://cutt.ly/abc123</code>"
         )
         return
-    
     processing_msg = await update.message.reply_text("📊 Fetching statistics...")
-    
-    # Get statistics
     result = get_url_stats(short_url)
-    
     if result.get('success'):
         stats = result.get('stats', {})
         stats_message = format_stats_message(stats)
-        
-        # Create keyboard with actions
         keyboard = [
             [InlineKeyboardButton("🔄 Refresh Stats", callback_data=f"refresh_stats_{short_url}")],
             [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
             [InlineKeyboardButton("🔗 Open URL", url=short_url)],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
         await processing_msg.edit_text(stats_message, reply_markup=reply_markup)
     else:
         error_msg = result.get('error', 'Unknown error')
-        await processing_msg.edit_text(f"❌ Failed to fetch statistics:\n{error_msg}")
+        await processing_msg.edit_html(f"❌ <b>Failed to fetch statistics:</b>\n{error_msg}")
 
 async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle custom alias command"""
     if not context.args:
-        await update.message.reply_text(
-            "❌ Usage: /custom your-alias https://example.com\n\n"
-            "Example:\n"
-            "/custom mysite https://www.mylink.com\n\n"
-            "Rules for alias:\n"
+        await update.message.reply_html(
+            "❌ <b>Usage:</b> /custom your-alias <code>https://example.com</code>\n\n"
+            "<b>Example:</b>\n"
+            "/custom mysite <code>https://www.mywebsite.com</code>\n\n"
+            "<b>Rules for alias:</b>\n"
             "• 3-30 characters\n"
             "• Letters, numbers, hyphens only\n"
             "• Must be unique"
         )
         return
-    
-    # Check if enough arguments
     if len(context.args) < 2:
         await update.message.reply_text(
             "❌ Please provide both alias and URL.\n"
             "Example: /custom mysite https://example.com"
         )
         return
-    
     custom_alias = context.args[0]
     url = context.args[1]
-    
-    # Validate alias
     if not re.match(r'^[a-zA-Z0-9-]{3,30}$', custom_alias):
-        await update.message.reply_text(
-            "❌ Invalid alias!\n\n"
-            "Valid alias must:\n"
+        await update.message.reply_html(
+            "❌ <b>Invalid alias!</b>\n\n"
+            "<b>Valid alias must:</b>\n"
             "• Be 3-30 characters\n"
             "• Contain only letters, numbers, hyphens\n"
             "• Start with letter or number\n"
             "• No spaces or special characters"
         )
         return
-    
-    # Validate URL
     if not is_valid_url(url):
-        await update.message.reply_text(
-            "❌ Invalid URL!\n\n"
+        await update.message.reply_html(
+            "❌ <b>Invalid URL!</b>\n\n"
             "Please send a valid URL starting with:\n"
-            "• http:// or https://\n"
-            "• Example: https://example.com"
+            "• <code>http://</code> or <code>https://</code>\n"
+            "• Example: <code>https://example.com</code>"
         )
         return
-    
-    # Process URL shortening
     processing_msg = await update.message.reply_text(f"⏳ Shortening with alias {custom_alias}...")
-    
     result = shorten_url_with_cuttly(url, custom_alias)
-    
     if result.get('success'):
         short_url = result.get('short_url', '')
         short_id = result.get('short_id', '')
         update_user_stats(update.effective_user.id)
-        
         response_message = (
-            f"✅ URL Shortened Successfully!\n\n"
-            f"🌐 Original URL:\n{url[:100]}...\n\n"
-            f"🔗 Short URL:\n{short_url}\n\n"
-            f"🏷️ Custom Alias: {custom_alias}\n\n"
-            f"📊 Use /stats {short_url} to track clicks\n\n"
-            f"📋 Copy: {short_url}"
+            f"✅ <b>URL Shortened Successfully!</b>\n\n"
+            f"🌐 <b>Original URL:</b>\n<code>{url[:100]}...</code>\n\n"
+            f"🔗 <b>Short URL:</b>\n<code>{short_url}</code>\n\n"
+            f"🏷️ <b>Custom Alias:</b> <code>{custom_alias}</code>\n\n"
+            f"📊 <b>Use</b> <code>/stats {short_url}</code> <b>to track clicks</b>\n\n"
+            f"📋 <b>Copy:</b> <code>{short_url}</code>"
         )
-        
-        # Create keyboard with actions
         keyboard = [
             [InlineKeyboardButton("📋 Copy URL", callback_data=f"copy_{short_url}")],
             [InlineKeyboardButton("📊 View Stats", callback_data=f"stats_{short_url}")],
@@ -497,108 +394,84 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔗 Open URL", url=short_url)],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await processing_msg.edit_text(response_message, reply_markup=reply_markup)
+        await processing_msg.edit_text(response_message, reply_markup=reply_markup, parse_mode='HTML')
     else:
         error_msg = result.get('error', 'Unknown error')
-        await processing_msg.edit_text(f"❌ Failed to shorten URL:\n{error_msg}")
+        await processing_msg.edit_html(f"❌ <b>Failed to shorten URL:</b>\n{error_msg}")
 
 async def qr_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Generate QR code for URL and send as image"""
     if not context.args:
-        await update.message.reply_text(
-            "❌ Usage: /qr https://example.com\n\n"
-            "Example:\n"
-            "/qr https://www.mylink.com\n\n"
+        await update.message.reply_html(
+            "❌ <b>Usage:</b> /qr <code>https://example.com</code>\n\n"
+            "<b>Example:</b>\n"
+            "/qr <code>https://www.mywebsite.com</code>\n\n"
             "I'll generate and send a QR code image for your URL!"
         )
         return
-    
     url = ' '.join(context.args)
-    
-    # Validate URL
     if not url.startswith('https://cutt.ly/') and not is_valid_url(url):
-        await update.message.reply_text(
-            "❌ Invalid URL!\n\n"
+        await update.message.reply_html(
+            "❌ <b>Invalid URL!</b>\n\n"
             "Please send a valid URL starting with:\n"
-            "• http:// or https://\n"
-            "• Example: https://example.com\n"
-            "• Or a Cuttly short URL: https://cutt.ly/abc123"
+            "• <code>http://</code> or <code>https://</code>\n"
+            "• Example: <code>https://example.com</code>\n"
+            "• Or a Cuttly short URL: <code>https://cutt.ly/abc123</code>"
         )
         return
-    
     processing_msg = await update.message.reply_text("📱 Generating QR code...")
-    
-    # Generate QR code LOCALLY
     qr_image = generate_qr_code(url)
-    
     if qr_image:
         try:
-            # Send QR code as photo
             await processing_msg.delete()
-            
-            # Truncate URL for caption
             display_url = url[:60] + "..." if len(url) > 60 else url
-            
             caption = (
-                f"📱 QR Code Generated\n\n"
-                f"🔗 URL: {display_url}\n\n"
+                f"📱 <b>QR Code Generated</b>\n\n"
+                f"🔗 <b>URL:</b> <code>{display_url}</code>\n\n"
             )
-            
-            # Send the image
             await update.message.reply_photo(
                 photo=qr_image,
-                caption=caption
+                caption=caption,
+                parse_mode='HTML'
             )
             logger.info(f"✅ QR code sent successfully for URL: {url[:50]}")
-            
         except Exception as e:
             logger.error(f"Failed to send QR photo: {e}")
             await processing_msg.edit_text(
                 f"❌ Failed to send QR code image:\n{str(e)[:100]}"
             )
     else:
-        await processing_msg.edit_text(
-            "❌ Failed to generate QR code!\n\n"
-            "Please try again with a different URL."
+        await processing_msg.edit_html(
+            "❌ <b>Failed to generate QR code!</b>\n\n"
+            "Please try again or use a different URL."
         )
 
 async def bulk_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle bulk URL shortening"""
-    await update.message.reply_text(
-        "📦 Bulk URL Shortener\n\n"
+    bulk_text = (
+        "📦 <b>Bulk URL Shortener\n\n</b>"
         "Send me multiple URLs (one per line):\n\n"
-        "Example:\n"
-        "\n"
-        "https://example.com/page1\n"
+        "<b>Example:</b>"
+        "<pre><code>https://example.com/page1\n"
         "https://example.com/page2\n"
-        "https://example.com/page3\n"
-        "\n\n"
+        "https://example.com/page3</code></pre>\n\n"
         "I'll shorten all of them and send back the results!\n\n"
-        "Note: Maximum 10 URLs at once."
+        "<b>Note:</b> Maximum 10 URLs at once."
     )
-    
-    # Store that we're expecting bulk URLs
+    await update.message.reply_text(bulk_text, parse_mode="HTML")
     context.user_data['expecting_bulk'] = True
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle URL messages from users"""
     text = update.message.text.strip()
     user_id = update.effective_user.id
-    
-    # Check if we're expecting bulk URLs
     if context.user_data.get('expecting_bulk'):
         context.user_data['expecting_bulk'] = False
         await handle_bulk_urls(update, text)
         return
-    
-    # Validate URL
     if not is_valid_url(text):
-        await update.message.reply_text(
-            "❌ Invalid URL!\n\n"
+        await update.message.reply_html(
+            "❌ <b>Invalid URL!</b>\n\n"
             "Please send a valid URL starting with:\n"
-            "• http:// or https://\n"
-            "• Example: https://example.com\n\n"
+            "• <code>http://</code> or <code>https://</code>\n"
+            "• Example: <code>https://example.com</code>\n\n"
             "Or use commands:\n"
             "• /custom alias url - Custom alias\n"
             "• /qr url - Generate QR code\n"
@@ -606,67 +479,48 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• /stats url - View statistics"
         )
         return
-    
-    # Show processing message
     processing_msg = await update.message.reply_text("⏳ Shortening your URL...")
-    
-    # Shorten URL
     result = shorten_url_with_cuttly(text)
-    
     if result.get('success'):
         short_url = result.get('short_url', '')
         update_user_stats(user_id)
-        
         response_message = (
-            f"✅ URL Shortened Successfully!\n\n"
-            f"🌐 Original URL:\n{text[:100]}...\n\n"
-            f"🔗 Short URL:\n{short_url}\n\n"
-            f"💡 Tip: Use /custom for custom alias"
+            f"✅ <b>URL Shortened Successfully!</b>\n\n"
+            f"🌐 <b>Original URL:</b>\n<code>{text[:100]}...</code>\n\n"
+            f"🔗 <b>Short URL:</b>\n<code>{short_url}</code>\n\n"
+            f"📊 <b>Use</b> /stats <code>{short_url}</code> <b>to track clicks</b>\n\n"
+            f"💡 <b>Tip:</b> Use /custom for custom alias"
         )
-        
-        # Create keyboard with actions
         keyboard = [
             [InlineKeyboardButton("📊 View Stats", callback_data=f"stats_{short_url}")],
             [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
             [InlineKeyboardButton("🔗 Open URL", url=short_url)],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await processing_msg.edit_text(response_message, reply_markup=reply_markup)
+        await processing_msg.edit_text(response_message, reply_markup=reply_markup, parse_mode="HTML")
     else:
         error_msg = result.get('error', 'Unknown error')
-        await processing_msg.edit_text(f"❌ Failed to shorten URL:\n{error_msg}")
+        await processing_msg.edit_html(f"❌ <b>Failed to shorten URL:</b>\n{error_msg}")
 
 async def handle_bulk_urls(update: Update, text: str):
-    """Handle bulk URL shortening"""
     urls = [line.strip() for line in text.split('\n') if line.strip()]
-    
-    # Limit to 10 URLs
     if len(urls) > 10:
         await update.message.reply_text("❌ Maximum 10 URLs allowed. Please send fewer URLs.")
         return
-    
-    # Validate URLs
     valid_urls = []
     invalid_urls = []
-    
     for url in urls:
         if is_valid_url(url):
             valid_urls.append(url)
         else:
-            invalid_urls.append(url)
-    
+            invalid_urls.append(url)    
     if not valid_urls:
         await update.message.reply_text("❌ No valid URLs found. Please check your URLs and try again.")
         return
-    
-    # Process bulk shortening
     processing_msg = await update.message.reply_text(f"⏳ Processing {len(valid_urls)} URLs...")
-    
     results = []
     successful = 0
     failed = 0
-    
     for url in valid_urls:
         result = shorten_url_with_cuttly(url)
         if result.get('success'):
@@ -677,143 +531,105 @@ async def handle_bulk_urls(update: Update, text: str):
             error_msg = result.get('error', 'Unknown error')
             results.append((url, f"❌ Error: {error_msg}"))
             failed += 1
-    
-    # Prepare response
     response_parts = []
-    
     if successful > 0:
-        response_parts.append(f"✅ Successfully shortened {successful} URLs:\n")
+        response_parts.append(f"✅ <b>Successfully shortened</b> {successful} URLs:\n")
         for original, short_url in results:
             if not short_url.startswith('❌'):
                 response_parts.append(f"• {short_url}")
-    
     if failed > 0:
-        response_parts.append(f"\n❌ Failed to shorten {failed} URLs:")
+        response_parts.append(f"\n❌ <b>Failed to shorten</b> {failed} URLs:")
         for original, error in results:
             if error.startswith('❌'):
                 response_parts.append(f"• {original[:50]}... → {error}")
-    
     if invalid_urls:
-        response_parts.append(f"\n⚠️ Invalid URLs ({len(invalid_urls)}):")
-        for url in invalid_urls[:5]:  # Show first 5
+        response_parts.append(f"\n⚠️ <b>Invalid URLs ({len(invalid_urls)}):</b>")
+        for url in invalid_urls[:5]:
             response_parts.append(f"• {url[:50]}...")
         if len(invalid_urls) > 5:
             response_parts.append(f"• ... and {len(invalid_urls) - 5} more")
-    
-    # Update user stats
-    update_user_stats(update.effective_user.id, successful)
-    
+    update_user_stats(update.effective_user.id, successful)    
     response_message = "\n".join(response_parts)
-    
-    # Split if message is too long
     if len(response_message) > 4000:
         chunks = [response_message[i:i+4000] for i in range(0, len(response_message), 4000)]
         for i, chunk in enumerate(chunks):
             if i == 0:
-                await processing_msg.edit_text(chunk)
+                await processing_msg.edit_text(chunk, parse_mode="HTML")
             else:
-                await update.message.reply_text(chunk)
+                await update.message.reply_text(chunk, parse_mode="HTML")
     else:
-        await processing_msg.edit_text(response_message)
+        await processing_msg.edit_text(response_message, parse_mode="HTML")
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle button callbacks"""
     query = update.callback_query
     await query.answer()
-    
     data = query.data
-    
     try:
         if data.startswith('stats_'):
-            # Show statistics for URL
             short_url = data[6:]
             await query.edit_message_text("📊 Fetching statistics...")
-            
             result = get_url_stats(short_url)
-            
             if result.get('success'):
                 stats = result.get('stats', {})
                 stats_message = format_stats_message(stats)
-                
                 keyboard = [
                     [InlineKeyboardButton("🔄 Refresh", callback_data=f"stats_{short_url}")],
                     [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
                     [InlineKeyboardButton("🔗 Open URL", url=short_url)],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                
                 await query.edit_message_text(stats_message, reply_markup=reply_markup)
             else:
                 error_msg = result.get('error', 'Unknown error')
-                await query.edit_message_text(f"❌ Failed to fetch stats:\n{error_msg}")
-        
+                await query.edit_message_text(f"❌ <b>Failed to fetch stats:</b>\n{error_msg}", parse_mode="HTML")
         elif data.startswith('qr_'):
-            # Generate and send QR code
             url = data[3:]
             await query.edit_message_text("📱 Generating QR code...")
-            
             qr_image = generate_qr_code(url)
-            
             if qr_image:
-                # Truncate URL for caption
                 display_url = url[:60] + "..." if len(url) > 60 else url
-                
                 caption = (
-                    f"📱 QR Code\n\n"
-                    f"🔗 URL: {display_url}\n\n"
-                    f"Scan to open URL"
+                    f"📱 <b>QR Code</b>\n\n"
+                    f"🔗 <b>URL:</b> <code>{url[:80]}...</code>\n\n"
+                    f"<b>Scan to open URL</b>"
                 )
-                
-                # Send QR code as photo
                 await context.bot.send_photo(
                     chat_id=query.message.chat_id,
                     photo=qr_image,
-                    caption=caption
+                    caption=caption,
+                    parse_mode='HTML'
                 )
-                
-                # Edit original message to show success
-                await query.edit_message_text(
-                    f"✅ QR code generated successfully!"
-                )
+                await query.edit_message_text("✅ <b>QR code generated successfully!</b>", parse_mode="HTML")
                 logger.info(f"✅ QR code sent via button for: {url[:50]}")
             else:
                 await query.edit_message_text(
-                    "❌ Failed to generate QR code!\n\n"
-                    "Please try again later."
+                    "❌ <b>Failed to generate QR code!</b>\n\n"
+                    "Please try again later.",
+                    parse_mode="HTML"
                 )
-        
         elif data.startswith('refresh_stats_'):
-            # Refresh statistics
             short_url = data[14:]
             await query.edit_message_text("🔄 Refreshing statistics...")
-            
             result = get_url_stats(short_url)
-            
             if result.get('success'):
                 stats = result.get('stats', {})
                 stats_message = format_stats_message(stats)
-                
                 keyboard = [
                     [InlineKeyboardButton("🔄 Refresh", callback_data=f"refresh_stats_{short_url}")],
                     [InlineKeyboardButton("📱 QR Code", callback_data=f"qr_{short_url}")],
                     [InlineKeyboardButton("🔗 Open URL", url=short_url)],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await query.edit_message_text(stats_message, reply_markup=reply_markup)
+                await query.edit_message_text(stats_message, reply_markup=reply_markup, parse_mode="HTML")
             else:
                 error_msg = result.get('error', 'Unknown error')
-                await query.edit_message_text(f"❌ Failed to refresh stats:\n{error_msg}")
-    
+                await query.edit_message_text(f"❌ <b>Failed to refresh stats:</b>\n{error_msg}", parse_mode="HTML")
     except Exception as e:
         logger.error(f"Button callback error: {e}")
         await query.edit_message_text(f"❌ Error: {str(e)[:100]}")
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Log errors"""
     logger.error(f"Update {update} caused error {context.error}")
-    
-    # Send user-friendly error message
     try:
         if update and update.effective_message:
             await update.effective_message.reply_text(
@@ -823,55 +639,35 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 def main():
-    """Start the bot"""
-    # Create application
-    application = Application.builder().token(TOKEN).build()
-    
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("mystats", mystats_command))
-    application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("custom", custom_command))
-    application.add_handler(CommandHandler("qr", qr_command))
-    application.add_handler(CommandHandler("bulk", bulk_command))
-    
-    # Add message handler for URLs
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
-    
-    # Add callback query handler
-    application.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Add error handler
-    application.add_error_handler(error_handler)
-    
-    # Start the bot
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("mystats", mystats_command))
+    app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("custom", custom_command))
+    app.add_handler(CommandHandler("qr", qr_command))
+    app.add_handler(CommandHandler("bulk", bulk_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_error_handler(error_handler)
     logger.info("🤖 URL Shortener Bot starting...")
-    
     class HealthHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(b'Bot is alive!')
-        
         def log_message(self, format, *args):
-            pass  # Silence logs
-
+            pass
     def run_health_server():
-        port = int(os.environ.get("PORT", 10000))
-        httpd = HTTPServer(('0.0.0.0', port), HealthHandler)
-        logger.info(f"✅ Health server on port {port}")
+        httpd = HTTPServer(('0.0.0.0', 10000), HealthHandler)
+        logger.info(f"✅ Health server on port 10000")
         httpd.serve_forever()
-    
-    # Start health server
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
-    
-    application.run_polling(
+    app.run_polling(
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES
        )
-
 if __name__ == '__main__':
     main()
